@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
@@ -340,6 +341,206 @@ public class IConfigurationExtensionsTests
         Assert.Equal("hi", result.Something);
         Assert.Null(result.Other);
     }
+
+    [Fact]
+    public void ListOfIntType_Binds()
+    {
+        string typeName = nameof(ListOfIntType);
+        string propertyName = nameof(ListOfIntType.Ints);
+
+        var configurationManager = new ConfigurationManager();
+        configurationManager.AddInMemoryCollection(new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0", "123"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:1", "456"),
+        });
+
+        var result = configurationManager.Bind<ListOfIntType>();
+
+        var expected = new List<int> { 123, 456 };
+        Assert.True(expected.SequenceEqual(result.Ints));
+    }
+
+    [Fact]
+    public void HashSetOfIntType_Binds()
+    {
+        string typeName = nameof(HashSetOfIntType);
+        string propertyName = nameof(HashSetOfIntType.Ints);
+
+        var configurationManager = new ConfigurationManager();
+        configurationManager.AddInMemoryCollection(new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0", "123"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:1", "456"),
+        });
+
+        var result = configurationManager.Bind<HashSetOfIntType>();
+
+        var expected = new HashSet<int>() { 123, 456 };
+        Assert.True(expected.SetEquals(result.Ints));
+    }
+
+    [Fact]
+    public void IEnumerableOfIntType_Binds()
+    {
+        string typeName = nameof(IEnumerableOfIntType);
+        string propertyName = nameof(IEnumerableOfIntType.Ints);
+
+        var configurationManager = new ConfigurationManager();
+        configurationManager.AddInMemoryCollection(new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0", "123"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:1", "456"),
+        });
+
+        var result = configurationManager.Bind<IEnumerableOfIntType>();
+
+        IEnumerable<int> expected = new List<int> { 123, 456 };
+        Assert.True(expected.SequenceEqual(result.Ints));
+    }
+
+    [Fact]
+    public void ListOfStringType_Binds()
+    {
+        string typeName = nameof(ListOfStringType);
+        string propertyName = nameof(ListOfStringType.Strings);
+
+        var configurationManager = new ConfigurationManager();
+        configurationManager.AddInMemoryCollection(new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0", "123"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:1", "456"),
+        });
+
+        var result = configurationManager.Bind<ListOfStringType>();
+
+        var expected = new List<string> { "123", "456" };
+        Assert.True(expected.SequenceEqual(result.Strings));
+    }
+
+    [Fact]
+    public void HashSetOfStringType_Binds()
+    {
+        string typeName = nameof(HashSetOfStringType);
+        string propertyName = nameof(HashSetOfStringType.Strings);
+
+        var configurationManager = new ConfigurationManager();
+        configurationManager.AddInMemoryCollection(new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0", "123"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:1", "456"),
+        });
+
+        var result = configurationManager.Bind<HashSetOfStringType>();
+
+        var expected = new HashSet<string> { "123", "456" };
+        Assert.True(expected.SetEquals(result.Strings));
+    }
+
+    [Fact]
+    public void IEnumerableOfStringType_Binds()
+    {
+        string typeName = nameof(IEnumerableOfStringType);
+        string propertyName = nameof(IEnumerableOfStringType.Strings);
+
+        var configurationManager = new ConfigurationManager();
+        configurationManager.AddInMemoryCollection(new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0", "123"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:1", "456"),
+        });
+
+        var result = configurationManager.Bind<IEnumerableOfStringType>();
+        IEnumerable<string> expected = new List<string> { "123", "456" };
+        Assert.True(expected.SequenceEqual(result.Strings));
+    }
+
+    [Fact]
+    public void ListOfListType_Binds()
+    {
+        string typeName = nameof(ListOfListsType);
+        string propertyName = nameof(ListOfListsType.Lists);
+
+        var configurationManager = new ConfigurationManager();
+        configurationManager.AddInMemoryCollection(new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:0", "123"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:1", "456"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:1:0", "789"),
+        });
+
+        var result = configurationManager.Bind<ListOfListsType>();
+
+        Assert.Equal(2, result.Lists.Count);
+        Assert.Equal(2, result.Lists[0].Count);
+        Assert.Single(result.Lists[1]);
+        Assert.Equal("123", result.Lists[0][0]);
+        Assert.Equal("456", result.Lists[0][1]);
+        Assert.Equal("789", result.Lists[1][0]);
+    }
+
+    [Fact]
+    public void ListOfMultipleTypes_Binds()
+    {
+        string typeName = nameof(ListOfMultipleTypes);
+        string propertyName = nameof(ListOfMultipleTypes.MultipleTypes);
+
+        var configurationManager = new ConfigurationManager();
+        configurationManager.AddInMemoryCollection(new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:Foo", "s1"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:Bar", "42"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:Other", bool.TrueString),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:Misc", "3.14"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:Blah", "1999-12-31"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:Url", "https://www.example.com"),
+        });
+
+        var listType = configurationManager.Bind<ListOfMultipleTypes>();
+
+        Assert.Single(listType.MultipleTypes);
+        var result = listType.MultipleTypes[0];
+        Assert.Equal("s1", result.Foo);
+        Assert.Equal(42, result.Bar);
+        Assert.True(result.Other);
+        Assert.Equal(3.14m, result.Misc);
+        Assert.Equal(DateTime.Parse("1999-12-31"), result.Blah);
+        Assert.Equal(new Uri("https://www.example.com"), result.Url);
+    }
+
+    [Fact]
+    public void ListOfComplexTypes_Binds()
+    {
+        string typeName = nameof(ListOfComplexTypes);
+        string propertyName = nameof(ListOfComplexTypes.List);
+
+        var configurationManager = new ConfigurationManager();
+        configurationManager.AddInMemoryCollection(new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:String", "s1"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:StringSet:0", "ss_0"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:StringSet:1", "ss_1"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:StringSet:2", "ss_2"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:OtherTypes:0:First", "first.first"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:OtherTypes:0:Second", "first.second"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:OtherTypes:0:Third", "123"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:OtherTypes:1:First", "second.first"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:OtherTypes:1:Second", "second.second"),
+            new KeyValuePair<string, string>($"{typeName}:{propertyName}:0:OtherTypes:1:Third", "456"),
+        });
+
+        var result = configurationManager.Bind<ListOfComplexTypes>();
+        Assert.Single(result.List);
+        var complexType = result.List[0];
+
+        Assert.Equal("s1", complexType.String);
+        Assert.True((new HashSet<string>() { "ss_0", "ss_1", "ss_2" }).SetEquals(complexType.StringSet));
+        Assert.True((new HashSet<EmbeddedType>() {
+            new ("first.first", "first.second", 123),
+            new ("second.first", "second.second", 456),
+        }).SetEquals(complexType.OtherTypes));
+    }
+
 }
 
 public class NoPublicConstructor
@@ -364,3 +565,24 @@ public record NestedOptional(string Something, OptionalString Other);
 public record NestedNoPublicConstructor(NoPublicConstructor Other);
 
 public record NestedOptionalType(string Something, RequiredString? Other);
+
+public record ListOfIntType(IReadOnlyList<int> Ints);
+// For some Reason, IReadOnlyet<> fails...
+public record HashSetOfIntType(HashSet<int> Ints);
+public record IEnumerableOfIntType(IReadOnlyCollection<int> Ints);
+
+public record ListOfStringType(IReadOnlyList<string> Strings);
+// For some Reason, IReadOnlyet<> fails...
+public record HashSetOfStringType(HashSet<string> Strings);
+public record IEnumerableOfStringType(IReadOnlyCollection<string> Strings);
+
+public record ListOfListsType(IReadOnlyList<IReadOnlyList<string>> Lists);
+
+// Looks like IReadOnlyList fails here, too...
+public record ListOfMultipleTypes(List<MultipleTypes> MultipleTypes);
+
+public record EmbeddedType(string First, string Second, int Third);
+// For some Reason, IReadOnlyet<> fails...
+public record ComplexType(string String, HashSet<string> StringSet, HashSet<EmbeddedType> OtherTypes);
+// Looks like IReadOnlyList fails here, too...
+public record ListOfComplexTypes(List<ComplexType> List);

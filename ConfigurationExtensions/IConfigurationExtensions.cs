@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+using System.Collections;
+using System.Reflection;
 using Microsoft.Extensions.Configuration;
 
 namespace DevTrends.ConfigurationExtensions;
@@ -50,6 +51,40 @@ public static class IConfigurationExtensions
         var nullableType = GetNullableType(parameter);
 
         var type = nullableType ?? parameter.ParameterType;
+
+        if (type != typeof(string) && type.IsAssignableTo(typeof(IEnumerable)))
+        {
+            var section = configuration.GetSection(key);
+            IEnumerable? result = default;
+            try
+            {
+                result = section.Get(type) as IEnumerable;
+            }
+            catch (InvalidOperationException)
+            {
+                // This shows up, for example, when trying to Get() something from System.Collections.Immutable
+            }
+
+            if (result is not null && result.GetEnumerator().MoveNext())
+            {
+                // MoveNext() returning true tells us the result is not empty
+                return result;
+            }
+            else
+            {
+                // Construct the class implementing IEnumerable<T>
+                var containedType = type.GenericTypeArguments[0];
+                var children = new ReflectedGenericList(containedType);
+
+                foreach (var child in section.GetChildren())
+                {
+                    object? item = section.GetValue(type.GenericTypeArguments[0], child.Key);
+                    item ??= Bind(configuration, type.GenericTypeArguments[0], $"{key}:{child.Key}");
+                    children.Add(item);
+                }
+                return children.AsContainerOfT(type);
+            }
+        }
 
         if (type.IsClass && type != typeof(string) && type != typeof(Uri))
         {

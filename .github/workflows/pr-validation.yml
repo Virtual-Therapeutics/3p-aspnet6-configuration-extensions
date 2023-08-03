@@ -1,0 +1,61 @@
+name: PR Validation
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches:
+      - main
+
+env:
+  SLN_NAME: ConfigurationExtensions.sln
+  CSPROJ_PATH: ConfigurationExtensions/ConfigurationExtensions.csproj
+  CONFIGURATION: Release
+
+jobs:
+  build-and-unit-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check Out
+        uses: actions/checkout@v3
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6'
+
+      # I can't find a github action for this, which is preposterous.
+      - name: Fix slashes for pre-release detection
+        run: >
+          tr '\\' '/' <$SLN_NAME >$SLN_NAME.new &&
+          mv $SLN_NAME.new $SLN_NAME
+
+      - name: detect-prerelease
+        uses: kevin-bronsdijk/nuget-pre-release-packages-detection-action@042c7b08f8e68b3bc8a8a85554e0e972457102f8 # 1.5.1, but immutablbe
+        id: uses-nuget-prereleases
+        with:
+          solution-file-name: ${{ env.SLN_NAME }}
+
+      - if: ${{ steps.detect-prerelease.outputs.uses-nuget-prereleases }}
+        name: Error if pre-release used
+        run: echo "::error::Solution references pre-release nuget packages."
+
+      - name: Restore Dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: >
+          dotnet build $CSPROJ_PATH
+          --configuration $CONFIGURATION
+          --no-restore
+
+      - name: Run Unit Tests
+        run: >
+          dotnet test
+          --configuration $CONFIGURATION
+          --no-build
+          --verbosity normal

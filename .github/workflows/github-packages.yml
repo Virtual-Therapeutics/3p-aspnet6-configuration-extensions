@@ -1,0 +1,56 @@
+name: GitHub Packages
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - main # Note: branch rules require PR approval for main
+
+env:
+  SLN_NAME: ConfigurationExtensions.sln
+  CSPROJ_PATH: ConfigurationExtensions/ConfigurationExtensions.csproj
+  PUBLISH_FOLDER: ConfigurationExtensions/bin
+  CONFIGURATION: Release
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    timeout-minutes: 5
+
+    steps:
+      - name: Check Out
+        uses: actions/checkout@v3
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6'
+
+      - name: Restore Dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: >
+          dotnet build $CSPROJ_PATH
+          --configuration $CONFIGURATION
+          --no-restore
+
+      - name: Dotnet Pack
+        run: >
+          dotnet pack $CSPROJ_PATH
+          --property:Configuration=$CONFIGURATION
+          --no-build
+
+      - name: Publish to GitHub Packages
+        run: >
+          dotnet nuget push
+          "${{ env.PUBLISH_FOLDER }}/**/*.nupkg"
+          --api-key ${{ secrets.GITHUB_TOKEN }}
+          --source https://nuget.pkg.github.com/Virtual-Therapeutics/index.json
+
+

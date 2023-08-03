@@ -107,34 +107,18 @@ public static class IConfigurationExtensions
 
         if (type == typeof(string)) return value;
 
-        if (type == typeof(int))
+        if (type.IsValueType)
         {
-            if (int.TryParse(value, out var intValue))
+            try
             {
-                return intValue;
+                return Convert.ChangeType(value, type);
             }
-
-            throw new ConfigurationBindException($"Error converting value '{value}' to an int. Source: '{key}'");
-        }
-
-        if (type == typeof(bool))
-        {
-            if (bool.TryParse(value, out var boolValue))
+            catch (Exception e) when (e is FormatException ||
+                                      e is InvalidCastException ||
+                                      e is OverflowException)
             {
-                return boolValue;
+                throw new ConfigurationBindException($"Error converting value '{value}' to {type.Name}. Source: '{key}'", e);
             }
-
-            throw new ConfigurationBindException($"Error converting value '{value}' to a bool. Source: '{key}'");
-        }
-
-        if (type == typeof(decimal))
-        {
-            if (decimal.TryParse(value, out var decimalValue))
-            {
-                return decimalValue;
-            }
-
-            throw new ConfigurationBindException($"Error converting value '{value}' to a decimal. Source: '{key}'");
         }
 
         if (type == typeof(DateTime))
@@ -144,7 +128,7 @@ public static class IConfigurationExtensions
                 return dateTimeValue;
             }
 
-            throw new ConfigurationBindException($"Error converting value '{value}' to a datetime. Source: '{key}'");
+            throw new ConfigurationBindException($"Error converting value '{value}' to a DateTime. Source: '{key}'");
         }
 
         if (type == typeof(Uri))
@@ -154,7 +138,7 @@ public static class IConfigurationExtensions
                 return uriValue;
             }
 
-            throw new ConfigurationBindException($"Error converting value '{value}' to a uri. Source: '{key}'");
+            throw new ConfigurationBindException($"Error converting value '{value}' to a Uri. Source: '{key}'");
         }
 
         throw new ConfigurationBindException($"Unhandled type '{type.FullName}'");

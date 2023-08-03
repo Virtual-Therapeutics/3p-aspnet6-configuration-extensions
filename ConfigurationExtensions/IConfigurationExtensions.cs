@@ -59,6 +59,11 @@ public static class IConfigurationExtensions
             try
             {
                 result = section.Get(type) as IEnumerable;
+                // Get() with a set-like type returns a List.
+                // Lists don't implicitly convert to sets.
+                // So we need special code here to check if `type` is set-like,
+                // and if so, construct a different class ourselves.
+                result = HandleSetTypes(type, result);
             }
             catch (InvalidOperationException)
             {
@@ -142,6 +147,24 @@ public static class IConfigurationExtensions
         }
 
         throw new ConfigurationBindException($"Unhandled type '{type.FullName}'");
+    }
+
+    private static IEnumerable? HandleSetTypes(Type type, IEnumerable? result)
+    {
+        if (result is null) return null;
+        if (type.IsConstructedGenericType)
+        {
+            var containedType = type.GetGenericArguments().First();
+            var constructedSetType = typeof(HashSet<>).MakeGenericType(containedType);
+
+            if (type.IsAssignableFrom(constructedSetType))
+            {
+                // Activator.CreateInstance() only returns null when constructing a Nullable<T> with no value.
+                // That's not going to be the case here.
+                return (IEnumerable)Activator.CreateInstance(constructedSetType, result)!;
+            }
+        }
+        return result;
     }
 
     private static Type? GetNullableType(ParameterInfo parameter)

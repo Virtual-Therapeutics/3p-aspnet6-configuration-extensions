@@ -9,16 +9,6 @@ using Xunit;
 
 namespace ConfigurationExtensions.Tests;
 
-public static class NotNullExtensions
-{
-    [return: NotNull]
-    public static T NotNull<T>(this T self)
-    {
-        Assert.NotNull(self);
-        return self!;
-    }
-}
-
 /// <summary>
 /// A base class to help reduce human error from copy-pasting a lot of boilerplate for generics.
 /// </summary>

@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+using System.Collections;
+using System.Reflection;
 using Microsoft.Extensions.Configuration;
 
 namespace DevTrends.ConfigurationExtensions;
@@ -51,6 +52,45 @@ public static class IConfigurationExtensions
 
         var type = nullableType ?? parameter.ParameterType;
 
+        if (type != typeof(string) && type.IsAssignableTo(typeof(IEnumerable)))
+        {
+            var section = configuration.GetSection(key);
+            IEnumerable? result = default;
+            try
+            {
+                result = section.Get(type) as IEnumerable;
+                // Get() with a set-like type returns a List.
+                // Lists don't implicitly convert to sets.
+                // So we need special code here to check if `type` is set-like,
+                // and if so, construct a different class ourselves.
+                result = HandleSetTypes(type, result);
+            }
+            catch (InvalidOperationException)
+            {
+                // This shows up, for example, when trying to Get() something from System.Collections.Immutable
+            }
+
+            if (result is not null && result.GetEnumerator().MoveNext())
+            {
+                // MoveNext() returning true tells us the result is not empty
+                return result;
+            }
+            else
+            {
+                // Construct the class implementing IEnumerable<T>
+                var containedType = type.GenericTypeArguments[0];
+                var children = new ReflectedGenericList(containedType);
+
+                foreach (var child in section.GetChildren())
+                {
+                    object? item = section.GetValue(type.GenericTypeArguments[0], child.Key);
+                    item ??= Bind(configuration, type.GenericTypeArguments[0], $"{key}:{child.Key}");
+                    children.Add(item);
+                }
+                return children.AsContainerOfT(type);
+            }
+        }
+
         if (type.IsClass && type != typeof(string) && type != typeof(Uri))
         {
             return Bind(configuration, type, key, nullableType != null);
@@ -72,34 +112,18 @@ public static class IConfigurationExtensions
 
         if (type == typeof(string)) return value;
 
-        if (type == typeof(int))
+        if (type.IsValueType)
         {
-            if (int.TryParse(value, out var intValue))
+            try
             {
-                return intValue;
+                return Convert.ChangeType(value, type);
             }
-
-            throw new ConfigurationBindException($"Error converting value '{value}' to an int. Source: '{key}'");
-        }
-
-        if (type == typeof(bool))
-        {
-            if (bool.TryParse(value, out var boolValue))
+            catch (Exception e) when (e is FormatException ||
+                                      e is InvalidCastException ||
+                                      e is OverflowException)
             {
-                return boolValue;
+                throw new ConfigurationBindException($"Error converting value '{value}' to {type.Name}. Source: '{key}'", e);
             }
-
-            throw new ConfigurationBindException($"Error converting value '{value}' to a bool. Source: '{key}'");
-        }
-
-        if (type == typeof(decimal))
-        {
-            if (decimal.TryParse(value, out var decimalValue))
-            {
-                return decimalValue;
-            }
-
-            throw new ConfigurationBindException($"Error converting value '{value}' to a decimal. Source: '{key}'");
         }
 
         if (type == typeof(DateTime))
@@ -109,7 +133,7 @@ public static class IConfigurationExtensions
                 return dateTimeValue;
             }
 
-            throw new ConfigurationBindException($"Error converting value '{value}' to a datetime. Source: '{key}'");
+            throw new ConfigurationBindException($"Error converting value '{value}' to a DateTime. Source: '{key}'");
         }
 
         if (type == typeof(Uri))
@@ -119,10 +143,28 @@ public static class IConfigurationExtensions
                 return uriValue;
             }
 
-            throw new ConfigurationBindException($"Error converting value '{value}' to a uri. Source: '{key}'");
+            throw new ConfigurationBindException($"Error converting value '{value}' to a Uri. Source: '{key}'");
         }
 
         throw new ConfigurationBindException($"Unhandled type '{type.FullName}'");
+    }
+
+    private static IEnumerable? HandleSetTypes(Type type, IEnumerable? result)
+    {
+        if (result is null) return null;
+        if (type.IsConstructedGenericType)
+        {
+            var containedType = type.GetGenericArguments().First();
+            var constructedSetType = typeof(HashSet<>).MakeGenericType(containedType);
+
+            if (type.IsAssignableFrom(constructedSetType))
+            {
+                // Activator.CreateInstance() only returns null when constructing a Nullable<T> with no value.
+                // That's not going to be the case here.
+                return (IEnumerable)Activator.CreateInstance(constructedSetType, result)!;
+            }
+        }
+        return result;
     }
 
     private static Type? GetNullableType(ParameterInfo parameter)
